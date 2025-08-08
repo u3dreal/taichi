@@ -25,6 +25,9 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Host.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -1162,6 +1165,53 @@ TaichiLLVMContext::get_struct_type_with_data_layout(const StructType *old_ty,
               .get_struct_type(elements, layout)
               ->cast<StructType>(),
           struct_size};
+}
+
+bool TaichiLLVMContext::is_llvm_target_initialized(Arch arch) {
+  // Check if LLVM targets are already initialized by examining the target registry
+  // This is a simple detection mechanism to avoid conflicts when multiple
+  // libraries (like Blender and Taichi) initialize LLVM in the same process
+  
+  try {
+    if (arch_is_cpu(arch)) {
+#if defined(TI_PLATFORM_OSX) and defined(TI_ARCH_ARM)
+      // For Apple Silicon, check if AArch64 target is available
+      auto target_triple = llvm::Triple("aarch64-apple-darwin");
+      std::string error;
+      const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", target_triple, error);
+      return target != nullptr;
+#else
+      // For other CPU architectures, check native target
+      auto target_triple = llvm::sys::getDefaultTargetTriple();
+      std::string error;
+      const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", llvm::Triple(target_triple), error);
+      return target != nullptr;
+#endif
+    } else if (arch == Arch::cuda) {
+      // Check if NVPTX target is available
+      auto target_triple = llvm::Triple("nvptx64-nvidia-cuda");
+      std::string error;
+      const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", target_triple, error);
+      return target != nullptr;
+    } else if (arch == Arch::amdgpu) {
+      // Check if AMDGPU target is available
+      auto target_triple = llvm::Triple("amdgcn-amd-amdhsa");
+      std::string error;
+      const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", target_triple, error);
+      return target != nullptr;
+    } else if (arch == Arch::dx12) {
+      // Check if DirectX target is available (fallback to native for now)
+      auto target_triple = llvm::sys::getDefaultTargetTriple();
+      std::string error;
+      const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", llvm::Triple(target_triple), error);
+      return target != nullptr;
+    }
+  } catch (...) {
+    // If any exception occurs during target lookup, assume not initialized
+    return false;
+  }
+  
+  return false;
 }
 
 TI_REGISTER_TASK(make_slim_libdevice);

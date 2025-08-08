@@ -129,6 +129,9 @@ class TaichiLLVMContext {
 
   static llvm::DataLayout get_data_layout(Arch arch);
 
+  // LLVM initialization state detection
+  static bool is_llvm_target_initialized(Arch arch);
+
  private:
   std::unique_ptr<llvm::Module> clone_module_to_context(
       llvm::Module *module,
