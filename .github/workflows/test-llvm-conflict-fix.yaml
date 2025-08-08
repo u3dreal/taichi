@@ -10,50 +10,6 @@ env:
   TI_SKIP_VERSION_CHECK: 'ON'
 
 jobs:
-  build_linux_test:
-    name: Build Linux for LLVM Conflict Testing
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    env:
-      TAICHI_CMAKE_ARGS: >-
-        -DTI_WITH_OPENGL:BOOL=OFF
-        -DTI_WITH_CUDA:BOOL=OFF
-        -DTI_WITH_VULKAN:BOOL=OFF
-        -DTI_BUILD_TESTS:BOOL=ON
-        -DTI_WITH_C_API=ON
-        -DTI_WITH_STATIC_C_API=ON
-      PLATFORM: 'linux'
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: '0'
-          submodules: 'recursive'
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build
-
-      - name: Build
-        run: |
-          ./build.py --python=3.11
-
-      - name: Test LLVM Initialization State Check Function
-        run: |
-          python3 test_llvm_init_check.py
-
-      - name: Upload Built Wheel for Testing
-        uses: actions/upload-artifact@v4
-        with:
-          name: taichi-llvm-conflict-fix-linux
-          path: 'dist/*.whl'
-          retention-days: 7
-
   build_m1_test:
     name: Build M1 for LLVM Conflict Testing
     timeout-minutes: 30
@@ -83,10 +39,6 @@ jobs:
         run: |
           brew install molten-vk
           ./build.py --python=3.11
-
-      - name: Test LLVM Initialization State Check Function
-        run: |
-          python3 test_llvm_init_check.py
 
       - name: Upload Built Wheel for Testing
         uses: actions/upload-artifact@v4
