@@ -84,51 +84,66 @@ TaichiLLVMContext::TaichiLLVMContext(const CompileConfig &config, Arch arch)
       },
       nullptr);
 
-  if (arch_is_cpu(arch)) {
+  // Check if LLVM targets are already initialized (e.g., by Blender or other libraries)
+  // to avoid conflicts and duplicate initialization
+  bool llvm_already_initialized = is_llvm_target_initialized(arch);
+  
+  if (!llvm_already_initialized) {
+    TI_TRACE("LLVM targets not initialized, initializing for arch: {}", arch_name(arch));
+    
+    if (arch_is_cpu(arch)) {
 #if defined(TI_PLATFORM_OSX) and defined(TI_ARCH_ARM)
-    // Note that on Apple Silicon (M1), "native" seems to mean arm instead of
-    // arm64 (aka AArch64).
-    LLVMInitializeAArch64Target();
-    LLVMInitializeAArch64TargetMC();
-    LLVMInitializeAArch64TargetInfo();
-    LLVMInitializeAArch64AsmPrinter();
+      // Note that on Apple Silicon (M1), "native" seems to mean arm instead of
+      // arm64 (aka AArch64).
+      LLVMInitializeAArch64Target();
+      LLVMInitializeAArch64TargetMC();
+      LLVMInitializeAArch64TargetInfo();
+      LLVMInitializeAArch64AsmPrinter();
 #else
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      llvm::InitializeNativeTargetAsmParser();
 #endif
-  } else if (arch == Arch::dx12) {
-    // FIXME: Must initialize these before initializing Arch::dx12
-    // because it uses the jit of CPU right now.
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
-    // The dx target is used elsewhere, so we need to initialize it too.
+    } else if (arch == Arch::dx12) {
+      // FIXME: Must initialize these before initializing Arch::dx12
+      // because it uses the jit of CPU right now.
+      llvm::InitializeNativeTarget();
+      llvm::InitializeNativeTargetAsmPrinter();
+      llvm::InitializeNativeTargetAsmParser();
+      // The dx target is used elsewhere, so we need to initialize it too.
 #if defined(TI_WITH_DX12)
-    LLVMInitializeDirectXTarget();
-    LLVMInitializeDirectXTargetMC();
-    LLVMInitializeDirectXTargetInfo();
-    LLVMInitializeDirectXAsmPrinter();
+      LLVMInitializeDirectXTarget();
+      LLVMInitializeDirectXTargetMC();
+      LLVMInitializeDirectXTargetInfo();
+      LLVMInitializeDirectXAsmPrinter();
 #endif
-  } else if (arch == Arch::amdgpu) {
+    } else if (arch == Arch::amdgpu) {
 #if defined(TI_WITH_AMDGPU)
-    LLVMInitializeAMDGPUTarget();
-    LLVMInitializeAMDGPUTargetMC();
-    LLVMInitializeAMDGPUTargetInfo();
-    LLVMInitializeAMDGPUAsmPrinter();
-    LLVMInitializeAMDGPUAsmParser();
+      LLVMInitializeAMDGPUTarget();
+      LLVMInitializeAMDGPUTargetMC();
+      LLVMInitializeAMDGPUTargetInfo();
+      LLVMInitializeAMDGPUAsmPrinter();
+      LLVMInitializeAMDGPUAsmParser();
 #else
-    TI_NOT_IMPLEMENTED
+      TI_NOT_IMPLEMENTED
 #endif
-  } else {
+    } else if (arch == Arch::cuda) {
 #if defined(TI_WITH_CUDA)
-    LLVMInitializeNVPTXTarget();
-    LLVMInitializeNVPTXTargetMC();
-    LLVMInitializeNVPTXTargetInfo();
-    LLVMInitializeNVPTXAsmPrinter();
+      LLVMInitializeNVPTXTarget();
+      LLVMInitializeNVPTXTargetMC();
+      LLVMInitializeNVPTXTargetInfo();
+      LLVMInitializeNVPTXAsmPrinter();
 #else
-    TI_NOT_IMPLEMENTED
+      TI_NOT_IMPLEMENTED
 #endif
+    } else if (!arch_uses_llvm(arch)) {
+      // Architectures like Metal, OpenGL, Vulkan don't use LLVM
+      TI_TRACE("Architecture {} doesn't use LLVM, no initialization needed", arch_name(arch));
+    } else {
+      TI_WARN("Unknown LLVM architecture: {}, skipping LLVM initialization", arch_name(arch));
+    }
+  } else {
+    TI_TRACE("LLVM targets already initialized for arch: {}, skipping initialization", arch_name(arch));
   }
 
   data_layout_ = TaichiLLVMContext::get_data_layout(arch);
@@ -1205,10 +1220,19 @@ bool TaichiLLVMContext::is_llvm_target_initialized(Arch arch) {
       std::string error;
       const llvm::Target* target = llvm::TargetRegistry::lookupTarget("", llvm::Triple(target_triple), error);
       return target != nullptr;
+    } else if (arch == Arch::metal) {
+      // Metal uses SPIRV, not LLVM, so no LLVM initialization is needed
+      return true;
     }
   } catch (...) {
     // If any exception occurs during target lookup, assume not initialized
     return false;
+  }
+  
+  // For architectures that don't use LLVM (like OpenGL, Vulkan, etc.), 
+  // return true to indicate no LLVM initialization is needed
+  if (!arch_uses_llvm(arch)) {
+    return true;
   }
   
   return false;
