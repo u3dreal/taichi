@@ -7,7 +7,7 @@ on:
 
 jobs:
   call_build_taichi:
-    uses: ./.github/workflows/build.yml  # reusable workflow path
+    uses: ./build.yml  # reusable workflow path
     with:
       build_id: ${{ github.run_id }}           # unique build id
       nightly: false                           # or true if you want nightly builds
