@@ -16,7 +16,7 @@ jobs:
     defaults:
       run:
         shell: '/usr/bin/arch -arch arm64e /bin/bash --noprofile --norc -eo pipefail {0}'
-    runs-on: [self-hosted, online, m1]
+    runs-on: macos-latest
     env:
       TAICHI_CMAKE_ARGS: >-
         -DTI_WITH_OPENGL:BOOL=OFF
