@@ -3,12 +3,12 @@ name: Trigger Build Taichi on Push
 on:
   push:
     branches:
-      - llvm-commandline-fix
+      - llvm-commandline-fix  # your branch name
 
 jobs:
   call_build_taichi:
-    uses: ./build.yml@llvm-commandline-fix
+    uses: ./.github/workflows/build.yml  # reusable workflow path
     with:
-      build_id: ${{ github.run_id }}
-      nightly: true
-      python: '["3.11"]'
+      build_id: ${{ github.run_id }}           # unique build id
+      nightly: false                           # or true if you want nightly builds
+      python: '["3.11"]'                       # JSON string of Python versions to build
